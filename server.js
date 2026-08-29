@@ -8,7 +8,6 @@ const MONGO_URI = process.env.MONGO_URI;
 
 app.use(express.json());
 
-// Conexão com o MongoDB
 mongoose.connect(MONGO_URI)
   .then(() => {
     console.log(`Conectado ao MongoDB! Banco de dados: ${mongoose.connection.name}`);
@@ -17,8 +16,6 @@ mongoose.connect(MONGO_URI)
     console.error('Erro crítico ao conectar no MongoDB:', err);
   });
 
-// Rota de health check (agora retorna também o status do banco)
-// 0 = desconectado, 1 = conectado, 2 = conectando, 3 = desconectando
 app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'alive', 
