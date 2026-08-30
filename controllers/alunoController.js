@@ -12,6 +12,8 @@ exports.criarAluno = async (req, res) => {
       return res.status(400).json({ erro: 'Este email já está cadastrado.' });
     }
 
+    const LIMITE = parseInt(process.env.LIMITE_ALUNOS_POR_HORARIO) || 4;
+
     if (horariosFixos && horariosFixos.length > 0) {
       for (const slot of horariosFixos) {
         const alunosNoHorario = await Aluno.countDocuments({ 
@@ -20,7 +22,7 @@ exports.criarAluno = async (req, res) => {
           'horariosFixos.horario': slot.horario
         });
 
-        if (alunosNoHorario >= 4) {
+        if (alunosNoHorario >= LIMMITE) {
           return res.status(400).json({ 
             erro: `O horário de ${slot.diaSemana} às ${slot.horario} já atingiu o limite máximo de 4 alunos.` 
           });
@@ -65,16 +67,18 @@ exports.atualizarAluno = async (req, res) => {
   try {
     const { nome, telefone, endereco, cidade, professorId, horariosFixos } = req.body;
 
+    const LIMITE = parseInt(process.env.LIMITE_ALUNOS_POR_HORARIO) || 4;
+
     if (horariosFixos && horariosFixos.length > 0) {
       for (const slot of horariosFixos) {
         const alunosNoHorario = await Aluno.countDocuments({ 
           professorId: professorId,
           'horariosFixos.diaSemana': slot.diaSemana,
           'horariosFixos.horario': slot.horario,
-          _id: { $ne: req.params.id } // Ignora o próprio aluno na contagem
+          _id: { $ne: req.params.id } 
         });
 
-        if (alunosNoHorario >= 4) {
+        if (alunosNoHorario >= LIMITE) {
           return res.status(400).json({ 
             erro: `O novo horário de ${slot.diaSemana} às ${slot.horario} já está lotado (máx 4).` 
           });
