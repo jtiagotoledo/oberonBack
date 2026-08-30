@@ -22,9 +22,9 @@ exports.criarAluno = async (req, res) => {
           'horariosFixos.horario': slot.horario
         });
 
-        if (alunosNoHorario >= LIMMITE) {
+        if (alunosNoHorario >= LIMITE) {
           return res.status(400).json({ 
-            erro: `O horário de ${slot.diaSemana} às ${slot.horario} já atingiu o limite máximo de 4 alunos.` 
+            erro: `O horário de ${slot.diaSemana} às ${slot.horario} já atingiu o limite máximo de ${LIMITE} alunos.` 
           });
         }
       }
@@ -80,7 +80,7 @@ exports.atualizarAluno = async (req, res) => {
 
         if (alunosNoHorario >= LIMITE) {
           return res.status(400).json({ 
-            erro: `O novo horário de ${slot.diaSemana} às ${slot.horario} já está lotado (máx 4).` 
+            erro: `O novo horário de ${slot.diaSemana} às ${slot.horario} já está lotado (máx ${LIMITE}).` 
           });
         }
       }
