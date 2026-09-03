@@ -1,27 +1,46 @@
+const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const Admin = require('../models/Admin');
+const { enviarSenhaTemporaria } = require('../services/emailService');
 
 exports.criarAdmin = async (req, res) => {
   try {
-    const { nome, email, telefone, senha } = req.body;
+    const { nome, email, telefone } = req.body;
 
-    const adminExistente = await Admin.findOne({ email });
-    if (adminExistente) {
-      return res.status(400).json({ erro: 'Este email já está cadastrado.' });
+    const adminExiste = await Admin.findOne({ email });
+    if (adminExiste) {
+      return res.status(400).json({ erro: 'Este e-mail já está cadastrado.' });
     }
 
-    const salt = await bcrypt.genSalt(10);
-    const senhaHash = await bcrypt.hash(senha, salt);
+    const senhaTemporaria = crypto.randomBytes(3).toString('hex');
 
-    const novoAdmin = new Admin({ nome, email, telefone, senha: senhaHash });
+    const salt = await bcrypt.genSalt(10);
+    const senhaHash = await bcrypt.hash(senhaTemporaria, salt);
+
+    const novoAdmin = new Admin({
+      nome,
+      email,
+      telefone,
+      senha: senhaHash,
+      role: 'admin',
+      primeiroAcesso: true,
+    });
+
     await novoAdmin.save();
 
-    res.status(201).json({ 
-      mensagem: 'Administrador criado com sucesso!', 
-      admin: { id: novoAdmin._id, nome: novoAdmin.nome, email: novoAdmin.email } 
+    await enviarSenhaTemporaria(email, nome, senhaTemporaria);
+
+    res.status(201).json({
+      mensagem: 'Administrador cadastrado e e-mail enviado com sucesso!',
+      admin: {
+        id: novoAdmin._id,
+        nome: novoAdmin.nome,
+        email: novoAdmin.email,
+      },
     });
-  } catch (erro) {
-    res.status(500).json({ erro: 'Erro ao criar administrador.', detalhe: erro.message });
+  } catch (error) {
+    console.error('Erro ao cadastrar admin:', error);
+    res.status(500).json({ erro: 'Erro interno ao processar cadastro de administrador.' });
   }
 };
 
