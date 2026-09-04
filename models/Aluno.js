@@ -9,28 +9,25 @@ const alunoSchema = new mongoose.Schema({
   senha: { type: String, required: true },
   role: { type: String, default: 'aluno' },
   primeiroAcesso: { type: Boolean, default: true },
-  professorId: { 
-    type: mongoose.Schema.Types.ObjectId, 
+  professor: {
+    type: mongoose.Schema.Types.ObjectId,
     ref: 'Professor',
-    required: true 
+    required: true,
   },
-
-  horariosFixos: [{
-    diaSemana: { type: String, enum: ['Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira'] },
-    horario: { type: String } 
-  }],
-
-  limiteMensalReagendamentos: { type: Number, default: 2 },
-  
-  reagendamentos: [{
-    dataFalta: { type: Date, required: true },      
-    dataReposicao: { type: Date },                  
-    mesReferencia: { type: String, required: true } 
-  }],
-
+  aulasSemanais: { type: Number, required: true, min: 1, max: 5 },
+  horariosAula: [
+    {
+      diaSemana: {
+        type: String,
+        enum: ['Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira'],
+        required: true,
+      },
+      horario: { type: String, required: true }, 
+    },
+  ],
   resetSenhaToken: { type: String },
   resetSenhaExpira: { type: Date },
-  criadoEm: { type: Date, default: Date.now }
+  criadoEm: { type: Date, default: Date.now },
 });
 
 module.exports = mongoose.model('Aluno', alunoSchema);
