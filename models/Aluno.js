@@ -28,6 +28,8 @@ const alunoSchema = new mongoose.Schema({
     mesReferencia: { type: String, required: true } 
   }],
 
+  resetSenhaToken: { type: String },
+  resetSenhaExpira: { type: Date },
   criadoEm: { type: Date, default: Date.now }
 });
 

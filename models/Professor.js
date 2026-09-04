@@ -11,6 +11,8 @@ const professorSchema = new mongoose.Schema({
     diaSemana: { type: String, enum: ['Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira'] },
     slots: [{ type: String }]
   }],
+  resetSenhaToken: { type: String },
+  resetSenhaExpira: { type: Date },
   criadoEm: { type: Date, default: Date.now }
 });
 

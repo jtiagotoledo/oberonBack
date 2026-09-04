@@ -19,6 +19,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/admins', adminRoutes);
 app.use('/api/professores', professorRoutes);
 app.use('/api/alunos', alunoRoutes);
+app.use(express.static('public'));
 
 mongoose.connect(MONGO_URI)
   .then(() => {

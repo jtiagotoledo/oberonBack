@@ -7,6 +7,8 @@ const adminSchema = new mongoose.Schema({
   senha: { type: String, required: true },
   role: { type: String, default: 'admin' },
   primeiroAcesso: { type: Boolean, default: true },
+  resetSenhaToken: { type: String },
+  resetSenhaExpira: { type: Date },
   criadoEm: { type: Date, default: Date.now }
 });
 

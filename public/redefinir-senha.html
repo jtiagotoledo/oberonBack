@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Redefinir Senha</title>
+  <style>
+    body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; background-color: #f4f6f8; margin: 0; }
+    .card { background: #fff; padding: 32px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 100%; max-width: 380px; }
+    h2 { color: #8C6E97; margin-top: 0; text-align: center; }
+    input { width: 100%; padding: 12px; margin-top: 8px; margin-bottom: 16px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
+    button { width: 100%; padding: 12px; background-color: #63B887; border: none; border-radius: 6px; color: #fff; font-size: 16px; font-weight: bold; cursor: pointer; }
+    button:hover { background-color: #529e73; }
+    #msg { margin-top: 16px; text-align: center; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>Nova Senha</h2>
+    <form id="formReset">
+      <label>Digite sua nova senha:</label>
+      <input type="password" id="novaSenha" minlength="6" required placeholder="No mínimo 6 caracteres" />
+      <button type="submit" id="btnEnviar">Salvar Senha</button>
+    </form>
+    <div id="msg"></div>
+  </div>
+
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+    const form = document.getElementById('formReset');
+    const msg = document.getElementById('msg');
+
+    if (!token) {
+      form.style.display = 'none';
+      msg.innerHTML = '<span style="color: red;">Token de recuperação ausente.</span>';
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const novaSenha = document.getElementById('novaSenha').value;
+
+      try {
+        const res = await fetch('/api/auth/redefinir-senha', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token, novaSenha })
+        });
+        const data = await res.json();
+
+        if (res.ok) {
+          form.style.display = 'none';
+          msg.innerHTML = `<span style="color: #63B887; font-weight: bold;">${data.mensagem}</span>`;
+        } else {
+          msg.innerHTML = `<span style="color: red;">${data.erro}</span>`;
+        }
+      } catch (err) {
+        msg.innerHTML = '<span style="color: red;">Erro ao conectar com o servidor.</span>';
+      }
+    });
+  </script>
+</body>
+</html>

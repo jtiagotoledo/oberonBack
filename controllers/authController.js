@@ -1,14 +1,18 @@
+const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const Admin = require('../models/Admin');
 const Professor = require('../models/Professor');
 const Aluno = require('../models/Aluno');
+const { enviarEmailRecuperacao } = require('../services/emailService');
 
 const modelosPorRole = {
   admin: Admin,
   professor: Professor,
   aluno: Aluno,
 };
+
+const modelos = [Admin, Professor, Aluno];
 
 exports.login = async (req, res) => {
   try {
@@ -93,6 +97,78 @@ exports.trocarSenhaPrimeiroAcesso = async (req, res) => {
     });
   } catch (error) {
     console.error('Erro ao trocar senha genérica:', error);
+    res.status(500).json({ erro: 'Erro interno ao redefinir a senha.' });
+  }
+};
+
+exports.solicitarRecuperacaoSenha = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    let usuario = null;
+    let ModelEncontrado = null;
+
+    for (const Model of modelos) {
+      usuario = await Model.findOne({ email });
+      if (usuario) {
+        ModelEncontrado = Model;
+        break;
+      }
+    }
+
+    if (!usuario) {
+      return res.json({ mensagem: 'Se o e-mail existir, um link de recuperação foi enviado.' });
+    }
+
+    const tokenReset = crypto.randomBytes(32).toString('hex');
+
+    usuario.resetSenhaToken = tokenReset;
+    usuario.resetSenhaExpira = Date.now() + 15 * 60 * 1000;
+    await usuario.save();
+
+    const baseUrl = process.env.APP_URL;
+    const linkReset = `${baseUrl}/redefinir-senha.html?token=${tokenReset}`;
+
+    await enviarEmailRecuperacao(usuario.email, usuario.nome, linkReset);
+
+    res.json({ mensagem: 'E-mail de recuperação enviado com sucesso!' });
+  } catch (error) {
+    console.error('Erro na recuperação de senha:', error);
+    res.status(500).json({ erro: 'Erro interno ao solicitar recuperação de senha.' });
+  }
+};
+
+exports.redefinirSenha = async (req, res) => {
+  try {
+    const { token, novaSenha } = req.body;
+
+    if (!novaSenha || novaSenha.length < 6) {
+      return res.status(400).json({ erro: 'A senha deve ter no mínimo 6 caracteres.' });
+    }
+
+    let usuario = null;
+    for (const Model of modelos) {
+      usuario = await Model.findOne({
+        resetSenhaToken: token,
+        resetSenhaExpira: { $gt: Date.now() },
+      });
+      if (usuario) break;
+    }
+
+    if (!usuario) {
+      return res.status(400).json({ erro: 'Link inválido ou expirado. Solicite novamente.' });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    usuario.senha = await bcrypt.hash(novaSenha, salt);
+    usuario.primeiroAcesso = false;
+    usuario.resetSenhaToken = undefined;
+    usuario.resetSenhaExpira = undefined;
+    await usuario.save();
+
+    res.json({ mensagem: 'Senha redefinida com sucesso! Você já pode entrar pelo aplicativo.' });
+  } catch (error) {
+    console.error('Erro ao salvar nova senha redefinida:', error);
     res.status(500).json({ erro: 'Erro interno ao redefinir a senha.' });
   }
 };
