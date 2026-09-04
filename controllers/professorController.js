@@ -1,15 +1,21 @@
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
+const Admin = require('../models/Admin');
 const Professor = require('../models/Professor');
+const Aluno = require('../models/Aluno');
 const { enviarSenhaTemporaria } = require('../services/emailService');
 
 exports.criarProfessor = async (req, res) => {
   try {
     const { nome, email, telefone, horarios } = req.body;
 
-    const professorExiste = await Professor.findOne({ email });
-    if (professorExiste) {
-      return res.status(400).json({ erro: 'Este e-mail já está cadastrado.' });
+    const emailExiste =
+      (await Admin.findOne({ email })) ||
+      (await Professor.findOne({ email })) ||
+      (await Aluno.findOne({ email }));
+
+    if (emailExiste) {
+      return res.status(400).json({ erro: 'Este e-mail já está cadastrado no sistema.' });
     }
 
     const senhaTemporaria = crypto.randomBytes(3).toString('hex');
@@ -23,11 +29,10 @@ exports.criarProfessor = async (req, res) => {
       senha: senhaHash,
       role: 'professor',
       primeiroAcesso: true,
-      horarios: horarios || [], // Recebe o array formatado do app
+      horarios: horarios || [],
     });
 
     await novoProfessor.save();
-
     await enviarSenhaTemporaria(email, nome, senhaTemporaria);
 
     res.status(201).json({
@@ -66,19 +71,34 @@ exports.buscarProfessorPorId = async (req, res) => {
 
 exports.atualizarProfessor = async (req, res) => {
   try {
+    const { id } = req.params;
     const { nome, email, telefone, senha, horarios } = req.body;
+
+    if (email) {
+      const emailEmUso =
+        (await Admin.findOne({ email, _id: { $ne: id } })) ||
+        (await Professor.findOne({ email, _id: { $ne: id } })) ||
+        (await Aluno.findOne({ email, _id: { $ne: id } }));
+
+      if (emailEmUso) {
+        return res.status(400).json({ erro: 'Este e-mail já está em uso por outro usuário.' });
+      }
+    }
+
     let dadosAtualizados = { nome, email, telefone, horarios };
 
     if (senha) {
       const salt = await bcrypt.genSalt(10);
       dadosAtualizados.senha = await bcrypt.hash(senha, salt);
+      dadosAtualizados.primeiroAcesso = false; // Corrigido: desativa primeiro acesso se a senha for alterada aqui
     }
 
-    const professor = await Professor.findByIdAndUpdate(req.params.id, dadosAtualizados, { new: true }).select('-senha');
+    const professor = await Professor.findByIdAndUpdate(id, dadosAtualizados, { new: true }).select('-senha');
     if (!professor) return res.status(404).json({ erro: 'Professor não encontrado.' });
-    
+
     res.json({ mensagem: 'Dados atualizados!', professor });
   } catch (erro) {
+    console.error('Erro ao atualizar professor:', erro);
     res.status(500).json({ erro: 'Erro ao atualizar professor.' });
   }
 };

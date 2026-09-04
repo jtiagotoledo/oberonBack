@@ -1,19 +1,24 @@
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const Admin = require('../models/Admin');
+const Professor = require('../models/Professor');
+const Aluno = require('../models/Aluno');
 const { enviarSenhaTemporaria } = require('../services/emailService');
 
 exports.criarAdmin = async (req, res) => {
   try {
     const { nome, email, telefone } = req.body;
 
-    const adminExiste = await Admin.findOne({ email });
-    if (adminExiste) {
-      return res.status(400).json({ erro: 'Este e-mail já está cadastrado.' });
+    const emailExiste =
+      (await Admin.findOne({ email })) ||
+      (await Professor.findOne({ email })) ||
+      (await Aluno.findOne({ email }));
+
+    if (emailExiste) {
+      return res.status(400).json({ erro: 'Este e-mail já está cadastrado no sistema.' });
     }
 
     const senhaTemporaria = crypto.randomBytes(3).toString('hex');
-
     const salt = await bcrypt.genSalt(10);
     const senhaHash = await bcrypt.hash(senhaTemporaria, salt);
 
@@ -27,7 +32,6 @@ exports.criarAdmin = async (req, res) => {
     });
 
     await novoAdmin.save();
-
     await enviarSenhaTemporaria(email, nome, senhaTemporaria);
 
     res.status(201).json({
@@ -66,21 +70,34 @@ exports.buscarAdminPorId = async (req, res) => {
 
 exports.atualizarAdmin = async (req, res) => {
   try {
+    const { id } = req.params;
     const { nome, email, telefone, senha } = req.body;
+
+    if (email) {
+      const emailEmUso =
+        (await Admin.findOne({ email, _id: { $ne: id } })) ||
+        (await Professor.findOne({ email, _id: { $ne: id } })) ||
+        (await Aluno.findOne({ email, _id: { $ne: id } }));
+
+      if (emailEmUso) {
+        return res.status(400).json({ erro: 'Este e-mail já está em uso por outro usuário.' });
+      }
+    }
+
     let dadosAtualizados = { nome, email, telefone };
 
     if (senha) {
       const salt = await bcrypt.genSalt(10);
       dadosAtualizados.senha = await bcrypt.hash(senha, salt);
-      // Se um admin atualiza a própria senha por aqui, também remove o primeiroAcesso
       dadosAtualizados.primeiroAcesso = false;
     }
 
-    const admin = await Admin.findByIdAndUpdate(req.params.id, dadosAtualizados, { new: true }).select('-senha');
+    const admin = await Admin.findByIdAndUpdate(id, dadosAtualizados, { new: true }).select('-senha');
     if (!admin) return res.status(404).json({ erro: 'Administrador não encontrado.' });
-    
+
     res.json({ mensagem: 'Dados atualizados!', admin });
   } catch (erro) {
+    console.error('Erro ao atualizar admin:', error);
     res.status(500).json({ erro: 'Erro ao atualizar administrador.' });
   }
 };
