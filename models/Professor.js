@@ -6,6 +6,7 @@ const professorSchema = new mongoose.Schema({
   telefone: { type: String }, //
   senha: { type: String, required: true },
   role: { type: String, default: 'professor' },
+  primeiroAcesso: { type: Boolean, default: true },
   horarios: [{
     diaSemana: { type: String, enum: ['Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira'] },
     slots: [{ type: String }]

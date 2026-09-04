@@ -36,6 +36,7 @@ exports.criarAdmin = async (req, res) => {
         id: novoAdmin._id,
         nome: novoAdmin.nome,
         email: novoAdmin.email,
+        primeiroAcesso: novoAdmin.primeiroAcesso,
       },
     });
   } catch (error) {
@@ -71,6 +72,8 @@ exports.atualizarAdmin = async (req, res) => {
     if (senha) {
       const salt = await bcrypt.genSalt(10);
       dadosAtualizados.senha = await bcrypt.hash(senha, salt);
+      // Se um admin atualiza a própria senha por aqui, também remove o primeiroAcesso
+      dadosAtualizados.primeiroAcesso = false;
     }
 
     const admin = await Admin.findByIdAndUpdate(req.params.id, dadosAtualizados, { new: true }).select('-senha');

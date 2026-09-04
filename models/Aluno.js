@@ -8,6 +8,7 @@ const alunoSchema = new mongoose.Schema({
   cidade: { type: String },
   senha: { type: String, required: true },
   role: { type: String, default: 'aluno' },
+  primeiroAcesso: { type: Boolean, default: true },
   professorId: { 
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'Professor',

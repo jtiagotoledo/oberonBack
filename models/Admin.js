@@ -6,6 +6,7 @@ const adminSchema = new mongoose.Schema({
   telefone: { type: String }, //
   senha: { type: String, required: true },
   role: { type: String, default: 'admin' },
+  primeiroAcesso: { type: Boolean, default: true },
   criadoEm: { type: Date, default: Date.now }
 });
 
