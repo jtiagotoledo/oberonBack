@@ -1,34 +1,47 @@
+const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const Professor = require('../models/Professor');
+const { enviarSenhaTemporaria } = require('../services/emailService');
 
 exports.criarProfessor = async (req, res) => {
   try {
-    const { nome, email, telefone, senha, horarios } = req.body;
+    const { nome, email, telefone, horarios } = req.body;
 
-    const professorExistente = await Professor.findOne({ email });
-    if (professorExistente) {
-      return res.status(400).json({ erro: 'Este email já está cadastrado.' });
+    const professorExiste = await Professor.findOne({ email });
+    if (professorExiste) {
+      return res.status(400).json({ erro: 'Este e-mail já está cadastrado.' });
     }
 
+    const senhaTemporaria = crypto.randomBytes(3).toString('hex');
     const salt = await bcrypt.genSalt(10);
-    const senhaHash = await bcrypt.hash(senha, salt);
+    const senhaHash = await bcrypt.hash(senhaTemporaria, salt);
 
-    const novoProfessor = new Professor({ 
-      nome, 
-      email, 
-      telefone, 
+    const novoProfessor = new Professor({
+      nome,
+      email,
+      telefone,
       senha: senhaHash,
-      horarios 
+      role: 'professor',
+      primeiroAcesso: true,
+      horarios: horarios || [], // Recebe o array formatado do app
     });
-    
+
     await novoProfessor.save();
 
-    res.status(201).json({ 
-      mensagem: 'Professor cadastrado com sucesso!', 
-      professor: { id: novoProfessor._id, nome: novoProfessor.nome, email: novoProfessor.email, horarios: novoProfessor.horarios } 
+    await enviarSenhaTemporaria(email, nome, senhaTemporaria);
+
+    res.status(201).json({
+      mensagem: 'Professor cadastrado e e-mail enviado com sucesso!',
+      professor: {
+        id: novoProfessor._id,
+        nome: novoProfessor.nome,
+        email: novoProfessor.email,
+        primeiroAcesso: novoProfessor.primeiroAcesso,
+      },
     });
-  } catch (erro) {
-    res.status(500).json({ erro: 'Erro ao cadastrar professor.', detalhe: erro.message });
+  } catch (error) {
+    console.error('Erro ao cadastrar professor:', error);
+    res.status(500).json({ erro: 'Erro interno ao processar cadastro de professor.' });
   }
 };
 
