@@ -127,7 +127,7 @@ exports.solicitarRecuperacaoSenha = async (req, res) => {
     await usuario.save();
 
     const baseUrl = process.env.APP_URL;
-    const linkReset = `${baseUrl}/redefinir-senha.html?token=${tokenReset}`;
+    const linkReset = `${baseUrl}/api/redefinir-senha.html?token=${tokenReset}`;
 
     await enviarEmailRecuperacao(usuario.email, usuario.nome, linkReset);
 
