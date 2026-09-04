@@ -15,7 +15,7 @@ exports.login = async (req, res) => {
     const { email, senha } = req.body;
 
     let usuario = await Admin.findOne({ email });
-    
+
     if (!usuario) {
       usuario = await Professor.findOne({ email });
     }
@@ -30,15 +30,21 @@ exports.login = async (req, res) => {
     }
 
     const token = jwt.sign(
-      { id: usuario._id, role: usuario.role }, 
-      process.env.JWT_SECRET, 
+      { id: usuario._id, role: usuario.role },
+      process.env.JWT_SECRET,
       { expiresIn: '8h' }
     );
 
     res.json({
       mensagem: 'Login efetuado com sucesso!',
       token,
-      usuario: { id: usuario._id, nome: usuario.nome, email: usuario.email, role: usuario.role }
+      usuario: {
+        id: usuario._id,
+        nome: usuario.nome,
+        email: usuario.email,
+        role: usuario.role,
+        primeiroAcesso: usuario.primeiroAcesso ?? false,
+      },
     });
   } catch (erro) {
     res.status(500).json({ erro: 'Erro no servidor durante o login.' });
@@ -48,7 +54,7 @@ exports.login = async (req, res) => {
 exports.trocarSenhaPrimeiroAcesso = async (req, res) => {
   try {
     const { novaSenha } = req.body;
-    const { id, role } = req.usuario; 
+    const { id, role } = req.usuario;
 
     if (!novaSenha || novaSenha.length < 6) {
       return res.status(400).json({ erro: 'A nova senha deve ter no mínimo 6 caracteres.' });
