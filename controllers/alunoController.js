@@ -7,7 +7,21 @@ const { enviarSenhaTemporaria } = require('../services/emailService');
 
 exports.criarAluno = async (req, res) => {
   try {
-    const { nome, email, telefone, endereco, cidade, professor, aulasSemanais, horariosAula } = req.body;
+    const { nome, email, cpf, telefone, endereco, cidade, professor, aulasSemanais, horariosAula } = req.body;
+
+    if (!nome || !email || !cpf || !professor) {
+      return res.status(400).json({ erro: 'Nome, e-mail, CPF e professor são obrigatórios.' });
+    }
+
+    const cpfLimpo = cpf.replace(/\D/g, '');
+    if (cpfLimpo.length !== 11) {
+      return res.status(400).json({ erro: 'CPF inválido. Deve conter 11 dígitos.' });
+    }
+
+    const cpfExiste = await Aluno.findOne({ cpf: cpfLimpo });
+    if (cpfExiste) {
+      return res.status(400).json({ erro: 'Este CPF já está cadastrado para outro aluno.' });
+    }
 
     const emailExiste =
       (await Admin.findOne({ email })) ||
@@ -28,7 +42,8 @@ exports.criarAluno = async (req, res) => {
 
     const novoAluno = new Aluno({
       nome,
-      email,
+      email: email.toLowerCase().trim(),
+      cpf: cpfLimpo,
       telefone,
       endereco,
       cidade,
@@ -41,7 +56,6 @@ exports.criarAluno = async (req, res) => {
     });
 
     await novoAluno.save();
-
     await enviarSenhaTemporaria(email, nome, senhaTemporaria);
 
     res.status(201).json({
@@ -50,6 +64,7 @@ exports.criarAluno = async (req, res) => {
         id: novoAluno._id,
         nome: novoAluno.nome,
         email: novoAluno.email,
+        cpf: novoAluno.cpf,
         primeiroAcesso: novoAluno.primeiroAcesso,
       },
     });
@@ -68,39 +83,49 @@ exports.listarAlunos = async (req, res) => {
   }
 };
 
+exports.buscarAlunoPorId = async (req, res) => {
+  try {
+    const aluno = await Aluno.findById(req.params.id).populate('professor', 'nome email').select('-senha');
+    if (!aluno) return res.status(404).json({ erro: 'Aluno não encontrado.' });
+    res.json(aluno);
+  } catch (error) {
+    res.status(500).json({ erro: 'Erro ao buscar aluno.' });
+  }
+};
+
 exports.atualizarAluno = async (req, res) => {
   try {
-    const { nome, telefone, endereco, cidade, professorId, horariosFixos } = req.body;
+    const { id } = req.params;
+    const { nome, email, cpf, telefone, endereco, cidade, professor, aulasSemanais, horariosAula } = req.body;
 
-    const LIMITE = parseInt(process.env.LIMITE_ALUNOS_POR_HORARIO) || 4;
+    let dadosAtualizados = { nome, telefone, endereco, cidade, professor, aulasSemanais, horariosAula };
 
-    if (horariosFixos && horariosFixos.length > 0) {
-      for (const slot of horariosFixos) {
-        const alunosNoHorario = await Aluno.countDocuments({ 
-          professorId: professorId,
-          'horariosFixos.diaSemana': slot.diaSemana,
-          'horariosFixos.horario': slot.horario,
-          _id: { $ne: req.params.id } 
-        });
+    if (email) {
+      const emailEmUso =
+        (await Admin.findOne({ email, _id: { $ne: id } })) ||
+        (await Professor.findOne({ email, _id: { $ne: id } })) ||
+        (await Aluno.findOne({ email, _id: { $ne: id } }));
 
-        if (alunosNoHorario >= LIMITE) {
-          return res.status(400).json({ 
-            erro: `O novo horário de ${slot.diaSemana} às ${slot.horario} já está lotado (máx ${LIMITE}).` 
-          });
-        }
+      if (emailEmUso) {
+        return res.status(400).json({ erro: 'Este e-mail já está em uso por outro usuário.' });
       }
+      dadosAtualizados.email = email.toLowerCase().trim();
     }
 
-    const aluno = await Aluno.findByIdAndUpdate(
-      req.params.id, 
-      { nome, telefone, endereco, cidade, professorId, horariosFixos }, 
-      { new: true }
-    ).select('-senha');
-    
+    if (cpf) {
+      const cpfLimpo = cpf.replace(/\D/g, '');
+      const cpfEmUso = await Aluno.findOne({ cpf: cpfLimpo, _id: { $ne: id } });
+      if (cpfEmUso) {
+        return res.status(400).json({ erro: 'Este CPF já está em uso por outro aluno.' });
+      }
+      dadosAtualizados.cpf = cpfLimpo;
+    }
+
+    const aluno = await Aluno.findByIdAndUpdate(id, dadosAtualizados, { new: true }).select('-senha');
     if (!aluno) return res.status(404).json({ erro: 'Aluno não encontrado.' });
-    
-    res.json({ mensagem: 'Dados do aluno atualizados!', aluno });
-  } catch (erro) {
+
+    res.json({ mensagem: 'Dados atualizados com sucesso!', aluno });
+  } catch (error) {
     res.status(500).json({ erro: 'Erro ao atualizar aluno.' });
   }
 };
@@ -110,7 +135,7 @@ exports.deletarAluno = async (req, res) => {
     const aluno = await Aluno.findByIdAndDelete(req.params.id);
     if (!aluno) return res.status(404).json({ erro: 'Aluno não encontrado.' });
     res.json({ mensagem: 'Aluno removido com sucesso!' });
-  } catch (erro) {
+  } catch (error) {
     res.status(500).json({ erro: 'Erro ao deletar aluno.' });
   }
 };

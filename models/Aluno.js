@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const alunoSchema = new mongoose.Schema({
   nome: { type: String, required: true },
   email: { type: String, required: true, unique: true },
+  cpf: { type: String, required: true, unique: true, sparse: true },
   telefone: { type: String },
   endereco: { type: String },
   cidade: { type: String },
@@ -22,7 +23,7 @@ const alunoSchema = new mongoose.Schema({
         enum: ['Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira'],
         required: true,
       },
-      horario: { type: String, required: true }, 
+      horario: { type: String, required: true },
     },
   ],
   resetSenhaToken: { type: String },
