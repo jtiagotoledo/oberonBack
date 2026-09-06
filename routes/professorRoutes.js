@@ -10,5 +10,6 @@ router.delete('/:id', authMiddleware, roleMiddleware(['admin']), professorContro
 
 router.get('/', authMiddleware, roleMiddleware(['admin', 'aluno']), professorController.listarProfessores);
 router.get('/:id', authMiddleware, roleMiddleware(['admin', 'aluno']), professorController.buscarProfessorPorId);
+router.get('/:id/ocupacao', authMiddleware, roleMiddleware(['admin', 'professor']), professorController.obterOcupacaoHorarios);
 
 module.exports = router;

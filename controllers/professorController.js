@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const Admin = require('../models/Admin');
 const Professor = require('../models/Professor');
 const Aluno = require('../models/Aluno');
+const Configuracao = require('../models/Configuracao');
 const { enviarSenhaTemporaria } = require('../services/emailService');
 
 exports.criarProfessor = async (req, res) => {
@@ -110,5 +111,53 @@ exports.deletarProfessor = async (req, res) => {
     res.json({ mensagem: 'Professor removido com sucesso!' });
   } catch (erro) {
     res.status(500).json({ erro: 'Erro ao deletar professor.' });
+  }
+};
+
+exports.obterOcupacaoHorarios = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const professor = await Professor.findById(id);
+    if (!professor) {
+      return res.status(404).json({ erro: 'Professor não encontrado.' });
+    }
+
+    const config = await Configuracao.findOne({ chave: 'limiteAlunosPorHorario' });
+    const limite = config ? Number(config.valor) : 4;
+
+    // Buscar todos os alunos vinculados a esse professor
+    const alunos = await Aluno.find({ professor: id }).select('horariosAula');
+
+    // Mapear contagem por "DiaSemana_Horario"
+    const contagem = {};
+    alunos.forEach((aluno) => {
+      aluno.horariosAula?.forEach((h) => {
+        const chave = `${h.diaSemana}_${h.horario}`;
+        contagem[chave] = (contagem[chave] || 0) + 1;
+      });
+    });
+
+    // Montar mapa de status para cada horário da grade
+    const ocupacao = [];
+    professor.horarios?.forEach((item) => {
+      const slotsInfo = item.slots.map((slot) => {
+        const totalMatriculados = contagem[`${item.diaSemana}_${slot}`] || 0;
+        return {
+          horario: slot,
+          matriculados: totalMatriculados,
+          limite,
+          lotado: totalMatriculados >= limite,
+        };
+      });
+
+      ocupacao.push({
+        diaSemana: item.diaSemana,
+        slots: slotsInfo,
+      });
+    });
+
+    return res.json({ limite, ocupacao });
+  } catch (error) {
+    return res.status(500).json({ erro: 'Erro ao calcular ocupação dos horários.' });
   }
 };

@@ -3,7 +3,52 @@ const bcrypt = require('bcryptjs');
 const Aluno = require('../models/Aluno');
 const Admin = require('../models/Admin');
 const Professor = require('../models/Professor');
+const Configuracao = require('../models/Configuracao');
 const { enviarSenhaTemporaria } = require('../services/emailService');
+
+async function verificarCapacidadeHorarios(professorId, horariosAula, alunoIdIgnorado = null) {
+  const config = await Configuracao.findOne({ chave: 'limiteAlunosPorHorario' });
+  const limiteMaximo = config ? Number(config.valor) : 4;
+
+  const chavesUnicas = new Set();
+  for (const aula of horariosAula) {
+    const chave = `${aula.diaSemana}_${aula.horario}`;
+    if (chavesUnicas.has(chave)) {
+      return {
+        lotado: true,
+        mensagem: `O horário de ${aula.diaSemana} às ${aula.horario} foi selecionado mais de uma vez.`,
+      };
+    }
+    chavesUnicas.add(chave);
+  }
+
+  for (const aula of horariosAula) {
+    const filtro = {
+      professor: professorId,
+      horariosAula: {
+        $elemMatch: {
+          diaSemana: aula.diaSemana,
+          horario: aula.horario,
+        },
+      },
+    };
+
+    if (alunoIdIgnorado) {
+      filtro._id = { $ne: alunoIdIgnorado };
+    }
+
+    const totalAlunos = await Aluno.countDocuments(filtro);
+
+    if (totalAlunos >= limiteMaximo) {
+      return {
+        lotado: true,
+        mensagem: `O horário de ${aula.diaSemana} às ${aula.horario} atingiu o limite de ${limiteMaximo} alunos para este professor.`,
+      };
+    }
+  }
+
+  return { lotado: false };
+}
 
 exports.criarAluno = async (req, res) => {
   try {
@@ -34,6 +79,12 @@ exports.criarAluno = async (req, res) => {
 
     if (!horariosAula || horariosAula.length !== Number(aulasSemanais)) {
       return res.status(400).json({ erro: 'Defina o dia e horário para todas as aulas contratadas.' });
+    }
+
+    // Validação da capacidade por horário (limite dinâmico configurável)
+    const checagemCapacidade = await verificarCapacidadeHorarios(professor, horariosAula);
+    if (checagemCapacidade.lotado) {
+      return res.status(400).json({ erro: checagemCapacidade.mensagem });
     }
 
     const senhaTemporaria = crypto.randomBytes(3).toString('hex');
@@ -119,6 +170,13 @@ exports.atualizarAluno = async (req, res) => {
         return res.status(400).json({ erro: 'Este CPF já está em uso por outro aluno.' });
       }
       dadosAtualizados.cpf = cpfLimpo;
+    }
+
+    if (professor && horariosAula && horariosAula.length > 0) {
+      const checagemCapacidade = await verificarCapacidadeHorarios(professor, horariosAula, id);
+      if (checagemCapacidade.lotado) {
+        return res.status(400).json({ erro: checagemCapacidade.mensagem });
+      }
     }
 
     const aluno = await Aluno.findByIdAndUpdate(id, dadosAtualizados, { new: true }).select('-senha');

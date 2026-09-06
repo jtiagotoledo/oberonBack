@@ -8,6 +8,7 @@ const authRoutes = require('./routes/authRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const professorRoutes = require('./routes/professorRoutes');
 const alunoRoutes = require('./routes/alunoRoutes');
+app.use('/api/configuracoes', require('./routes/configuracaoRoutes'));
 
 const app = express();
 const PORT = process.env.PORT;
