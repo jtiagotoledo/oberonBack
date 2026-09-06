@@ -8,7 +8,7 @@ const authRoutes = require('./routes/authRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const professorRoutes = require('./routes/professorRoutes');
 const alunoRoutes = require('./routes/alunoRoutes');
-app.use('/api/configuracoes', require('./routes/configuracaoRoutes'));
+const configuracaoRoutes = require('./routes/configuracaoRoutes');
 
 const app = express();
 const PORT = process.env.PORT;
@@ -22,6 +22,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/admins', adminRoutes);
 app.use('/api/professores', professorRoutes);
 app.use('/api/alunos', alunoRoutes);
+app.use('/api/configuracoes', configuracaoRoutes);
 
 mongoose.connect(MONGO_URI)
   .then(() => {
