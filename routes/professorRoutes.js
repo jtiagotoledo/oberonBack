@@ -11,5 +11,6 @@ router.delete('/:id', authMiddleware, roleMiddleware(['admin']), professorContro
 router.get('/', authMiddleware, roleMiddleware(['admin', 'aluno']), professorController.listarProfessores);
 router.get('/:id', authMiddleware, roleMiddleware(['admin', 'aluno']), professorController.buscarProfessorPorId);
 router.get('/:id/ocupacao', authMiddleware, roleMiddleware(['admin', 'professor']), professorController.obterOcupacaoHorarios);
+router.get('/minha-grade', authMiddleware, roleMiddleware(['professor']), professorController.obterMinhaGradeCompleta);
 
 module.exports = router;

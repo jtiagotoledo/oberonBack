@@ -161,3 +161,69 @@ exports.obterOcupacaoHorarios = async (req, res) => {
     return res.status(500).json({ erro: 'Erro ao calcular ocupação dos horários.' });
   }
 };
+
+exports.obterMinhaGradeCompleta = async (req, res) => {
+  try {
+    const professorId = req.user.id; // Extraído pelo authMiddleware
+
+    const professor = await Professor.findById(professorId);
+    if (!professor) {
+      return res.status(404).json({ erro: 'Professor não encontrado.' });
+    }
+
+    const config = await Configuracao.findOne({ chave: 'limiteAlunosPorHorario' });
+    const limiteMaximo = config ? Number(config.valor) : 4;
+
+    const alunos = await Aluno.find({ professor: professorId })
+      .select('nome email telefone cpf horariosAula')
+      .lean();
+
+    const mapaAlunosPorSlot = {};
+    alunos.forEach((aluno) => {
+      aluno.horariosAula?.forEach((h) => {
+        const chave = `${h.diaSemana}_${h.horario}`;
+        if (!mapaAlunosPorSlot[chave]) {
+          mapaAlunosPorSlot[chave] = [];
+        }
+        mapaAlunosPorSlot[chave].push({
+          _id: aluno._id,
+          nome: aluno.nome,
+          email: aluno.email,
+          telefone: aluno.telefone,
+          cpf: aluno.cpf,
+        });
+      });
+    });
+
+    const grade = (professor.horarios || []).map((h) => {
+      const slotsComAlunos = (h.slots || []).map((slot) => {
+        const chave = `${h.diaSemana}_${slot}`;
+        const alunosDoSlot = mapaAlunosPorSlot[chave] || [];
+        return {
+          horario: slot,
+          limite: limiteMaximo,
+          totalAlunos: alunosDoSlot.length,
+          lotado: alunosDoSlot.length >= limiteMaximo,
+          alunos: alunosDoSlot,
+        };
+      });
+
+      return {
+        diaSemana: h.diaSemana,
+        slots: slotsComAlunos,
+      };
+    });
+
+    return res.json({
+      professor: {
+        id: professor._id,
+        nome: professor.nome,
+      },
+      limiteMaximo,
+      grade,
+    });
+  } catch (error) {
+    console.error('Erro ao buscar grade completa do professor:', error);
+    return res.status(500).json({ erro: 'Erro ao carregar grade de aulas.' });
+  }
+};
