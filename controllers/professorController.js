@@ -125,10 +125,8 @@ exports.obterOcupacaoHorarios = async (req, res) => {
     const config = await Configuracao.findOne({ chave: 'limiteAlunosPorHorario' });
     const limite = config ? Number(config.valor) : 4;
 
-    // Buscar todos os alunos vinculados a esse professor
     const alunos = await Aluno.find({ professor: id }).select('horariosAula');
 
-    // Mapear contagem por "DiaSemana_Horario"
     const contagem = {};
     alunos.forEach((aluno) => {
       aluno.horariosAula?.forEach((h) => {
@@ -137,7 +135,6 @@ exports.obterOcupacaoHorarios = async (req, res) => {
       });
     });
 
-    // Montar mapa de status para cada horário da grade
     const ocupacao = [];
     professor.horarios?.forEach((item) => {
       const slotsInfo = item.slots.map((slot) => {
@@ -164,7 +161,15 @@ exports.obterOcupacaoHorarios = async (req, res) => {
 
 exports.obterMinhaGradeCompleta = async (req, res) => {
   try {
-    const professorId = req.user.id; // Extraído pelo authMiddleware
+    let professorId = req.user.id;
+
+    if (req.user.role === 'admin') {
+      const primeiroProf = await Professor.findOne();
+      if (!primeiroProf) {
+        return res.status(404).json({ erro: 'Nenhum professor cadastrado para visualização.' });
+      }
+      professorId = primeiroProf._id;
+    }
 
     const professor = await Professor.findById(professorId);
     if (!professor) {
