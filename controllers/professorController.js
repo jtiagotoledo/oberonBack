@@ -241,3 +241,78 @@ exports.obterMinhaGradeCompleta = async (req, res) => {
     return res.status(500).json({ erro: 'Erro ao carregar grade de aulas.' });
   }
 };
+
+exports.obterMinhaAgenda = async (req, res) => {
+  try {
+    // Tenta pegar o ID do usuário através do req.usuario (padrão do seu middleware) ou req.user
+    let professorId = req.usuario?.id || req.user?.userId || req.user?.id;
+
+    // Se um Admin estiver testando a interface do app, pegamos um professor de exemplo
+    if ((req.usuario?.role === 'admin' || req.user?.role === 'admin')) {
+      const profExemplo = await Professor.findOne();
+      if (!profExemplo) {
+        return res.status(404).json({ erro: 'Nenhum professor cadastrado para testar a agenda.' });
+      }
+      professorId = profExemplo._id;
+    }
+
+    if (!professorId) {
+      return res.status(401).json({ erro: 'Identificador do professor não encontrado na sessão.' });
+    }
+
+    const professor = await Professor.findById(professorId);
+    if (!professor) {
+      return res.status(404).json({ erro: 'Professor não encontrado.' });
+    }
+
+    // Busca apenas os dados necessários dos alunos matriculados com este professor
+    const alunos = await Aluno.find({ professor: professorId })
+      .select('nome horariosAula')
+      .lean();
+
+    const diasOrdem = [
+      { key: 'Segunda-feira', label: 'Segunda' },
+      { key: 'Terça-feira', label: 'Terça' },
+      { key: 'Quarta-feira', label: 'Quarta' },
+      { key: 'Quinta-feira', label: 'Quinta' },
+      { key: 'Sexta-feira', label: 'Sexta' }
+    ];
+
+    const agenda = [];
+
+    // Percorre os dias da semana para montar a estrutura esperada pelo frontend
+    diasOrdem.forEach((dia) => {
+      const horarioProf = professor.horarios?.find(h => h.diaSemana === dia.key);
+      const horariosDia = [];
+
+      if (horarioProf && horarioProf.slots) {
+        // Ordena os slots cronologicamente (ex: 08:00, 09:00)
+        const slotsOrdenados = [...horarioProf.slots].sort();
+
+        slotsOrdenados.forEach((slot) => {
+          // Filtra os alunos que têm aula neste exato dia e horário
+          const alunosNoSlot = alunos
+            .filter(a => a.horariosAula?.some(ha => ha.diaSemana === dia.key && ha.horario === slot))
+            .map(a => ({ id: a._id, nome: a.nome }));
+
+          horariosDia.push({
+            id: `${dia.key}-${slot}`,
+            hora: slot,
+            alunos: alunosNoSlot
+          });
+        });
+      }
+
+      agenda.push({
+        diaOriginal: dia.key, // ex: "Segunda-feira"
+        diaNome: dia.label,   // ex: "Segunda" (Usado nos badges do app)
+        horarios: horariosDia
+      });
+    });
+
+    res.json({ agenda });
+  } catch (error) {
+    console.error('Erro ao montar agenda do professor:', error);
+    res.status(500).json({ erro: 'Erro ao carregar a agenda de aulas.' });
+  }
+};
