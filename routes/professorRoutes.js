@@ -4,7 +4,7 @@ const professorController = require('../controllers/professorController');
 const authMiddleware = require('../middlewares/authMiddleware');
 const roleMiddleware = require('../middlewares/roleMiddleware');
 
-router.get('/minha-grade', authMiddleware, roleMiddleware(['professor']), professorController.obterMinhaGradeCompleta);
+router.get('/minha-grade', authMiddleware, roleMiddleware(['admin', 'professor']), professorController.obterMinhaGradeCompleta);
 router.get('/:id/ocupacao', authMiddleware, roleMiddleware(['admin', 'professor']), professorController.obterOcupacaoHorarios);
 
 router.post('/', authMiddleware, roleMiddleware(['admin']), professorController.criarProfessor);
