@@ -161,14 +161,20 @@ exports.obterOcupacaoHorarios = async (req, res) => {
 
 exports.obterMinhaGradeCompleta = async (req, res) => {
   try {
-    let professorId = req.user.id;
+    // authMiddleware armazena userId no token
+    let professorId = req.user?.userId || req.user?.id;
 
-    if (req.user.role === 'admin') {
-      const primeiroProf = await Professor.findOne();
-      if (!primeiroProf) {
-        return res.status(404).json({ erro: 'Nenhum professor cadastrado para visualização.' });
+    // Se quem estiver acessando for um Admin testando a interface, seleciona o primeiro professor
+    if (req.user?.role === 'admin') {
+      const profExemplo = await Professor.findOne();
+      if (!profExemplo) {
+        return res.status(404).json({ erro: 'Nenhum professor cadastrado para testar a grade.' });
       }
-      professorId = primeiroProf._id;
+      professorId = profExemplo._id;
+    }
+
+    if (!professorId) {
+      return res.status(401).json({ erro: 'Identificador do professor não encontrado na sessão.' });
     }
 
     const professor = await Professor.findById(professorId);
@@ -179,10 +185,12 @@ exports.obterMinhaGradeCompleta = async (req, res) => {
     const config = await Configuracao.findOne({ chave: 'limiteAlunosPorHorario' });
     const limiteMaximo = config ? Number(config.valor) : 4;
 
+    // Busca todos os alunos matriculados com este professor
     const alunos = await Aluno.find({ professor: professorId })
       .select('nome email telefone cpf horariosAula')
       .lean();
 
+    // Agrupa alunos por "DiaSemana_Horario"
     const mapaAlunosPorSlot = {};
     alunos.forEach((aluno) => {
       aluno.horariosAula?.forEach((h) => {
@@ -200,6 +208,7 @@ exports.obterMinhaGradeCompleta = async (req, res) => {
       });
     });
 
+    // Monta a grade com os alunos alocados em cada slot
     const grade = (professor.horarios || []).map((h) => {
       const slotsComAlunos = (h.slots || []).map((slot) => {
         const chave = `${h.diaSemana}_${slot}`;
