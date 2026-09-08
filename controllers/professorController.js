@@ -91,7 +91,7 @@ exports.atualizarProfessor = async (req, res) => {
     if (senha) {
       const salt = await bcrypt.genSalt(10);
       dadosAtualizados.senha = await bcrypt.hash(senha, salt);
-      dadosAtualizados.primeiroAcesso = false; // Corrigido: desativa primeiro acesso se a senha for alterada aqui
+      dadosAtualizados.primeiroAcesso = false;
     }
 
     const professor = await Professor.findByIdAndUpdate(id, dadosAtualizados, { new: true }).select('-senha');
@@ -125,7 +125,8 @@ exports.obterOcupacaoHorarios = async (req, res) => {
     const config = await Configuracao.findOne({ chave: 'limiteAlunosPorHorario' });
     const limite = config ? Number(config.valor) : 4;
 
-    const alunos = await Aluno.find({ professor: id }).select('horariosAula');
+    // Busca rápida utilizando lean() e trazendo apenas os horários para contagem
+    const alunos = await Aluno.find({ professor: id }).select('horariosAula').lean();
 
     const contagem = {};
     alunos.forEach((aluno) => {
@@ -161,10 +162,8 @@ exports.obterOcupacaoHorarios = async (req, res) => {
 
 exports.obterMinhaGradeCompleta = async (req, res) => {
   try {
-    // authMiddleware armazena userId no token
     let professorId = req.user?.userId || req.user?.id;
 
-    // Se quem estiver acessando for um Admin testando a interface, seleciona o primeiro professor
     if (req.user?.role === 'admin') {
       const profExemplo = await Professor.findOne();
       if (!profExemplo) {
@@ -185,12 +184,10 @@ exports.obterMinhaGradeCompleta = async (req, res) => {
     const config = await Configuracao.findOne({ chave: 'limiteAlunosPorHorario' });
     const limiteMaximo = config ? Number(config.valor) : 4;
 
-    // Busca todos os alunos matriculados com este professor
     const alunos = await Aluno.find({ professor: professorId })
       .select('nome email telefone cpf horariosAula')
       .lean();
 
-    // Agrupa alunos por "DiaSemana_Horario"
     const mapaAlunosPorSlot = {};
     alunos.forEach((aluno) => {
       aluno.horariosAula?.forEach((h) => {
@@ -208,7 +205,6 @@ exports.obterMinhaGradeCompleta = async (req, res) => {
       });
     });
 
-    // Monta a grade com os alunos alocados em cada slot
     const grade = (professor.horarios || []).map((h) => {
       const slotsComAlunos = (h.slots || []).map((slot) => {
         const chave = `${h.diaSemana}_${slot}`;
@@ -244,10 +240,8 @@ exports.obterMinhaGradeCompleta = async (req, res) => {
 
 exports.obterMinhaAgenda = async (req, res) => {
   try {
-    // Tenta pegar o ID do usuário através do req.usuario (padrão do seu middleware) ou req.user
     let professorId = req.usuario?.id || req.user?.userId || req.user?.id;
 
-    // Se um Admin estiver testando a interface do app, pegamos um professor de exemplo
     if ((req.usuario?.role === 'admin' || req.user?.role === 'admin')) {
       const profExemplo = await Professor.findOne();
       if (!profExemplo) {
@@ -265,9 +259,9 @@ exports.obterMinhaAgenda = async (req, res) => {
       return res.status(404).json({ erro: 'Professor não encontrado.' });
     }
 
-    // Busca apenas os dados necessários dos alunos matriculados com este professor
+    // Busca adicionando a leitura do telefone para o frontend
     const alunos = await Aluno.find({ professor: professorId })
-      .select('nome horariosAula')
+      .select('nome telefone horariosAula')
       .lean();
 
     const diasOrdem = [
@@ -280,20 +274,22 @@ exports.obterMinhaAgenda = async (req, res) => {
 
     const agenda = [];
 
-    // Percorre os dias da semana para montar a estrutura esperada pelo frontend
     diasOrdem.forEach((dia) => {
       const horarioProf = professor.horarios?.find(h => h.diaSemana === dia.key);
       const horariosDia = [];
 
       if (horarioProf && horarioProf.slots) {
-        // Ordena os slots cronologicamente (ex: 08:00, 09:00)
         const slotsOrdenados = [...horarioProf.slots].sort();
 
         slotsOrdenados.forEach((slot) => {
-          // Filtra os alunos que têm aula neste exato dia e horário
+          // Filtra os alunos e agora mapeia também o telefone
           const alunosNoSlot = alunos
             .filter(a => a.horariosAula?.some(ha => ha.diaSemana === dia.key && ha.horario === slot))
-            .map(a => ({ id: a._id, nome: a.nome }));
+            .map(a => ({ 
+              id: a._id, 
+              nome: a.nome, 
+              telefone: a.telefone || '' 
+            }));
 
           horariosDia.push({
             id: `${dia.key}-${slot}`,
@@ -304,8 +300,8 @@ exports.obterMinhaAgenda = async (req, res) => {
       }
 
       agenda.push({
-        diaOriginal: dia.key, // ex: "Segunda-feira"
-        diaNome: dia.label,   // ex: "Segunda" (Usado nos badges do app)
+        diaOriginal: dia.key,
+        diaNome: dia.label,
         horarios: horariosDia
       });
     });
