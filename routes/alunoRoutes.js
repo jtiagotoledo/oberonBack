@@ -7,7 +7,7 @@ const roleMiddleware = require('../middlewares/roleMiddleware');
 router.post('/', authMiddleware, roleMiddleware(['admin', 'professor']), alunoController.criarAluno);
 router.get('/', authMiddleware, roleMiddleware(['admin', 'professor']), alunoController.listarAlunos);
 router.get('/:id', authMiddleware, roleMiddleware(['admin', 'professor', 'aluno']), alunoController.buscarAlunoPorId);
-router.put('/:id', authMiddleware, roleMiddleware(['admin', 'professor']), alunoController.atualizarAluno);
+router.put('/:id', authMiddleware, roleMiddleware(['admin', 'professor', 'aluno']), alunoController.atualizarAluno);
 router.delete('/:id', authMiddleware, roleMiddleware(['admin', 'professor']), alunoController.deletarAluno);
 
 module.exports = router;
