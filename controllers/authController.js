@@ -25,6 +25,10 @@ exports.login = async (req, res) => {
     }
 
     if (!usuario) {
+      usuario = await Aluno.findOne({ email });
+    }
+
+    if (!usuario) {
       return res.status(401).json({ erro: 'Credenciais inválidas.' });
     }
 
