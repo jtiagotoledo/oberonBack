@@ -26,6 +26,16 @@ const alunoSchema = new mongoose.Schema({
       horario: { type: String, required: true },
     },
   ],
+  reagendamentos: [
+    {
+      dataOrigem: { type: String, required: true },
+      horarioOrigem: { type: String, required: true },
+      dataNova: { type: String, required: true },
+      horarioNovo: { type: String, required: true },
+      professor: { type: mongoose.Schema.Types.ObjectId, ref: 'Professor' },
+      criadoEm: { type: Date, default: Date.now }
+    }
+  ],
   resetSenhaToken: { type: String },
   resetSenhaExpira: { type: Date },
   criadoEm: { type: Date, default: Date.now },

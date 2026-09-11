@@ -197,3 +197,28 @@ exports.deletarAluno = async (req, res) => {
     res.status(500).json({ erro: 'Erro ao deletar aluno.' });
   }
 };
+
+exports.registrarReagendamento = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { dataOrigem, horarioOrigem, dataNova, horarioNovo, professor } = req.body;
+
+    const aluno = await Aluno.findById(id);
+    if (!aluno) return res.status(404).json({ erro: 'Aluno não encontrado.' });
+
+    aluno.reagendamentos.push({
+      dataOrigem,
+      horarioOrigem,
+      dataNova,
+      horarioNovo,
+      professor
+    });
+
+    await aluno.save();
+
+    res.json({ mensagem: 'Aula reagendada com sucesso!' });
+  } catch (error) {
+    console.error('Erro ao registrar reagendamento:', error);
+    res.status(500).json({ erro: 'Erro interno ao reagendar a aula.' });
+  }
+};
