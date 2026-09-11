@@ -136,7 +136,11 @@ exports.listarAlunos = async (req, res) => {
 
 exports.buscarAlunoPorId = async (req, res) => {
   try {
-    const aluno = await Aluno.findById(req.params.id).populate('professor', 'nome email').select('-senha');
+    const aluno = await Aluno.findById(req.params.id)
+      .populate('professor', 'nome email')
+      .populate('reagendamentos.professor', 'nome email') // <-- Garante que o professor do reagendamento também venha populado
+      .select('-senha');
+      
     if (!aluno) return res.status(404).json({ erro: 'Aluno não encontrado.' });
     res.json(aluno);
   } catch (error) {
